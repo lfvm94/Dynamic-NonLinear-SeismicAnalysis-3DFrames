@@ -115,7 +115,6 @@ for isnap = 1:nstep
     A(:,isnap+1) = anew(dofhist); 
 
     Dsnap(:,isnap) = dnew; % Time-History displacement for all DOF
-    
 end
 D=D(:,2:nstep+1);
 V=V(:,2:nstep+1);

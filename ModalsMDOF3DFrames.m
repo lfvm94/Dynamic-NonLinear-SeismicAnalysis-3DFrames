@@ -1,5 +1,5 @@
-function [FmaxMDOF,Te,lambda,fi]=ModalsMDOF3DFrames(M,K,bc,sa,mode)
-% SYNTAX : [FmaxMDOF,Te,lambda,fi]=ModalsMDOF3DFrames(M,K,bc,sa,mode)
+function [FmaxMDOF,Te,lambda,fi,Ma]=ModalsMDOF3DFrames(M,K,bc,sa,mode)
+% SYNTAX : [FmaxMDOF,Te,lambda,fi,Ma]=ModalsMDOF3DFrames(M,K,bc,sa,mode)
 %---------------------------------------------------------------------
 %    PURPOSE
 %     To compute the equivalent inertial forces at the DOF's of a 
@@ -50,7 +50,6 @@ function [FmaxMDOF,Te,lambda,fi]=ModalsMDOF3DFrames(M,K,bc,sa,mode)
 for i=1:nmodes
     [factor,ifactor]=max(abs(fi(:,i))); % Eigenvectors - vibration modals
     factor=factor*sign(fi(ifactor,i));
-    fi(:,i)=fi(:,i)/factor; % Normalization
 end
 
 % Circular frequencies
@@ -65,13 +64,22 @@ Te=1./freq;
 %% Lateral equivalent inertial loads caused by the soil acceleration
 fmax=zeros(ndof,nmodes);
 for i=1:nmodes
-    M_asterisco=fi(:,i)'*M*fi(:,i);
+    Mn=fi(:,i)'*M*fi(:,i);
     
-    fmaxn=(fi(:,i)'*M/M_asterisco)*sa;
-    vector1=ones(1,ndof);
-    fmaxn=dot(fmaxn,vector1);
+    fmaxn=fi(:,i)'*M;
+    vector1=abs(fi(:,i)'); % influence vector
     
-    fmax(:,i)=fmaxn*(M*fi(:,i));
+    vector1(1,4:6:ndof)=0; % the roation DOF are not considered influential
+    vector1(1,5:6:ndof)=0; % the roation DOF are not considered influential
+    vector1(1,6:6:ndof)=0; % the roation DOF are not considered influential
+    
+    vector1=vector1/max(vector1);
+    
+    Ln=fmaxn*vector1'; 
+    rn=Ln/Mn; % Modal participation factor
+    fmax(:,i)=rn*sa;
+    
+    Ma(i)=rn^2*Mn; % Effective modal mass
 end
 
 % Lateral equivalent inertial loads considering the constribution of all 
@@ -82,7 +90,6 @@ FmaxMDOF=zeros(ndof,1);
 for j=1:npmodes
     FmaxMDOF(:,1)=FmaxMDOF(:,1)+fmax(:,mode(j)).^2;
 end
-
 
 if npmodes>1 % To consider the contribution of all modals
     FmaxMDOF=sqrt(FmaxMDOF);
