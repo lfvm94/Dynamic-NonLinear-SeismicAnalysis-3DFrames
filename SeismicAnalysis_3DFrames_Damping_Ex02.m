@@ -329,6 +329,8 @@ RayCoeff=D\theta; % Rayleigh coefficients
 pvconc=0.0024; % unit weight of concrete
 unitWeightElm=zeros(nbars,1)+pvconc;
 
+g=981; % gravity acceleration
+
 % Consistent mass method
 [Cgl,Mgl,Kgl]=SeismicModalMDOF3DFrames(coordxyz,A,unitWeightElm,qbarxyz,...
 eobars,Edof,E,G,J,Iy,Iz,NiNf(:,1),NiNf(:,2),g,RayCoeff);
@@ -348,47 +350,37 @@ end
 
 % Seismic response spectrum from the CFE-15
 g=981; % gravity acceleration
-Fsit=2.4; FRes=3.8; % Factores de sitio y de respuesta
-a0_tau=9; % cm/seg^2
-
-ro=0.8; % Redundance factor
-alf=0.9; % Irregularity factor
-Q=4; % Seismic behaviour factor
-
-Ta=0.1;
-Tb=0.6;
-Te=0.5; % Structure's period
-k=1.5; % Design spectrum slope
-Qp=1+(Q-1)*sqrt(Te/(k*Tb)); % Ductility factor
-
-Ro=2.5; % Over-resistance index
-R=Ro+1-sqrt(Te/Ta); % Over-resistance factor
-
-sa=-a0_tau*Fsit*FRes/(R*Qp*alf*ro); % Reduced pseudo-acceleration (cm/seg^2)
 
 % Time discretization
-dt=0.05;
-ttotal=10;
-t=0:dt:ttotal;
-npoints=length(t);
+nameAccel='KobeJapan1995_XD.csv';
 
-% Ground acceleration history
-tload=1.5; % duration of external excitation
+dt=0.01;
+Acc = importdata(nameAccel);
 
-g=sa*cos(5*t); % Acceleration in time
-for i=1:length(g)
-    if t(i)>3*tload
-        g(i)=10*cos(30*t(i));
+accelx=[];
+for i=1:819
+    for j=1:5
+        accelx=[accelx;Acc(i,j)];
     end
 end
+accelx=[accelx;Acc(820,1)];
+
+t=[];
+for i=1:4096
+    t=[t;i*dt];
+end
+
+npoints=length(t);
 
 figure(1)
+plot(t,accelx)
+xlabel('time (sec)')
+ylabel('Acceleration (g)')
+title('Accelerogram Kobe-Japan 1995 Nishi Akashi')
 grid on
-plot(t,g,'b -','LineWidth',1.8)
 hold on
-xlabel('Time (sec)')
-ylabel('Acceleration (Kg/cm^2)')
-title('Ground acceleration in time')
+
+accelx=accelx*100;
 
 nodeHist=[2 13 19];
 dofhist=nodeHist*6-5; % dof to evaluate
@@ -397,8 +389,8 @@ dofhist=nodeHist*6-5; % dof to evaluate
 f=zeros(6*nnodes,npoints+1);
 for i=1:npoints
     % Modal analysis without Damping
-    [f(:,i+1),Ts(:,i),Lai(:,i),Egv]=ModalsMDOF3DFrames(Mgl,Kgl,...
-        bc,g(i),modal);
+    [f(:,i+1),Ts(:,i),Lai(:,i),Egv,Ma]=ModalsMDOF3DFrames(Mgl,Kgl,...
+        bc,accelx(i),modal);
 end
 
 %% Plot of the modal in question and its frequency
@@ -541,7 +533,7 @@ ylabel('Displacements (cm)')
 title('Displacements in time per DOF')
 
 %% Deformation history of structures
-dtstep=5;
+dtstep=300;
 
 Xc=max(coordxyz(:,1));
 Yc=max(coordxyz(:,2));
@@ -549,7 +541,7 @@ Zc=max(coordxyz(:,3));
 figure(3)
 axis('equal')
 axis off
-sfac=10; % This is the scale factor for the plotting of the deformed
+sfac=1000; % This is the scale factor for the plotting of the deformed
          % structures.
 title(strcat('Deformed structures in time. Scale x ',num2str(sfac)))
 for i=1:5
@@ -561,7 +553,7 @@ for i=1:5
     Edb=extract(Edof,Dsnap(:,dtstep*i-(dtstep-1)));
     plotpar=[1,3,1];
     eldisp3(Ext,Ey,Ez,Edb,plotpar,sfac);
-    Time=num2str(t(5*i-4));
+    Time=num2str(t(dtstep*i-(dtstep-1)));
     NotaTime=strcat('Time(seg)= ',Time);
     text((Xc+400)*(i-1)+50,150,NotaTime);
 end
@@ -576,7 +568,7 @@ for i=6:10
     Edb=extract(Edof,Dsnap(:,dtstep*i-(dtstep-1)));
     plotpar=[1,3,1];
     [sfac]=eldisp3(Ext,Eyt,Ez,Edb,plotpar,sfac);
-    Time=num2str(t(5*i-4));
+    Time=num2str(t(dtstep*i-(dtstep-1)));
     NotaTime=strcat('Time(seg)= ',Time);
     text((Xc+400)*(i-6)+50,-250,NotaTime)
     
